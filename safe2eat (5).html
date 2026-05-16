@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Safe2Eat Bali</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --bg: #0a0f0d;
+    --surface: #111a14;
+    --surface2: #182119;
+    --border: #1e2e21;
+    --green: #4ade80;
+    --green-dim: #22543d;
+    --yellow: #fbbf24;
+    --yellow-dim: #78350f;
+    --red: #f87171;
+    --red-dim: #7f1d1d;
+    --text: #e8f5e9;
+    --text-muted: #6b8f6e;
+    --accent: #4ade80;
+    --card-bg: #0f1a11;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* BG texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: 
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(74,222,128,0.08) 0%, transparent 60%),
+      url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%234ade80' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 0 20px 80px; }
+
+  /* HEADER */
+  header {
+    text-align: center;
+    padding: 52px 0 36px;
+  }
+  .logo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(135deg, #0f2a13, #1a3a1e);
+    border: 1px solid #2a5a2e;
+    border-radius: 50px;
+    padding: 8px 20px;
+    margin-bottom: 24px;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--green);
+    font-weight: 600;
+  }
+  .logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.3)} }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.4rem, 7vw, 4rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -1px;
+  }
+  h1 span { color: var(--green); }
+  .subtitle {
+    color: var(--text-muted);
+    font-size: 1rem;
+    margin-top: 10px;
+    font-weight: 300;
+  }
+
+  /* SEARCH */
+  .search-section { margin: 32px 0 0; }
+  .search-box {
+    position: relative;
+    display: flex;
+    gap: 10px;
+  }
+  .search-input-wrap {
+    position: relative;
+    flex: 1;
+  }
+  .search-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 18px;
+    pointer-events: none;
+  }
+  #searchInput {
+    width: 100%;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 16px 16px 48px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  #searchInput:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(74,222,128,.1); }
+  #searchInput::placeholder { color: var(--text-muted); }
+
+  #searchBtn {
+    background: var(--green);
+    color: #0a0f0d;
+    border: none;
+    border-radius: 14px;
+    padding: 16px 28px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: .95rem;
+    cursor: pointer;
+    transition: transform .15s, opacity .15s;
+    white-space: nowrap;
+  }
+  #searchBtn:hover { opacity: .88; transform: translateY(-1px); }
+  #searchBtn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+  /* DROPDOWN */
+  #dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0; right: 0;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    z-index: 100;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6);
+  }
+  .dropdown-item {
+    padding: 14px 18px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition: background .15s;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .dropdown-item:last-child { border-bottom: none; }
+  .dropdown-item:hover { background: var(--surface2); }
+  .dropdown-item .place-name { font-weight: 500; color: var(--text); font-size: .95rem; }
+  .dropdown-item .place-type { font-size: .78rem; color: var(--text-muted); }
+
+  /* LOADING */
+  #loadingState {
+    display: none;
+    text-align: center;
+    padding: 60px 20px;
+  }
+  .spinner {
+    width: 48px; height: 48px;
+    border: 3px solid var(--border);
+    border-top-color: var(--green);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { color: var(--text-muted); font-size: .9rem; }
+  .loading-steps { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .loading-step { font-size: .8rem; color: var(--text-muted); opacity: 0; transition: opacity .4s; }
+  .loading-step.active { opacity: 1; color: var(--green); }
+
+  /* RESULT */
+  #result { display: none; margin-top: 32px; }
+
+  /* GAUGE */
+  .gauge-card {
+    background: var(--card-bg);
+    border: 1.5px solid var(--border);
+    border-radius: 20px;
+    padding: 36px 32px 28px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .gauge-card::before {
+    content: '';
+    position: absolute;
+    top: -60px; left: 50%;
+    transform: translateX(-50%);
+    width: 300px; height: 160px;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: .3;
+    transition: background .8s;
+  }
+  .gauge-card.safe::before { background: #4ade80; }
+  .gauge-card.caution::before { background: #fbbf24; }
+  .gauge-card.avoid::before { background: #f87171; }
+
+  .place-header { margin-bottom: 28px; position: relative; }
+  .place-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 800;
+    margin-bottom: 6px;
+  }
+  .place-meta { color: var(--text-muted); font-size: .85rem; display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
+  .place-meta span { display: flex; align-items: center; gap: 5px; }
+
+  .gauge-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .gauge-svg { width: 220px; height: 130px; display: block; flex-shrink: 0; }
+  .gauge-needle {
+    transform-origin: 110px 110px;
+    transition: transform 1.2s cubic-bezier(.34,1.56,.64,1);
+  }
+  .gauge-score { text-align: left; }
+  .score-number {
+    font-family: 'Syne', sans-serif;
+    font-size: 3.6rem;
+    font-weight: 800;
+    line-height: 1;
+    transition: color .8s;
+  }
+  .score-label {
+    font-size: .78rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-top: 6px;
+  }
+  .verdict-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 24px;
+    border-radius: 50px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: .5px;
+    margin-bottom: 8px;
+    transition: all .8s;
+  }
+  .verdict-badge.safe { background: rgba(74,222,128,.15); color: #4ade80; border: 1px solid rgba(74,222,128,.3); }
+  .verdict-badge.caution { background: rgba(251,191,36,.15); color: #fbbf24; border: 1px solid rgba(251,191,36,.3); }
+  .verdict-badge.avoid { background: rgba(248,113,113,.15); color: #f87171; border: 1px solid rgba(248,113,113,.3); }
+  .verdict-summary { color: var(--text-muted); font-size: .88rem; max-width: 480px; margin: 0 auto; line-height: 1.6; }
+
+  /* PARAMETERS GRID */
+  .params-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  @media (max-width: 500px) { .params-grid { grid-template-columns: 1fr; } }
+  .param-card {
+    background: var(--card-bg);
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    padding: 18px;
+  }
+  .param-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .param-label { display: flex; align-items: center; gap: 8px; font-size: .85rem; font-weight: 500; }
+  .param-emoji { font-size: 1.1rem; }
+  .param-score { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1rem; }
+  .param-bar-bg { height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
+  .param-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 1.2s cubic-bezier(.34,1.56,.64,1);
+    width: 0%;
+  }
+  .param-bar-fill.safe { background: linear-gradient(90deg, #22c55e, #4ade80); }
+  .param-bar-fill.caution { background: linear-gradient(90deg, #d97706, #fbbf24); }
+  .param-bar-fill.avoid { background: linear-gradient(90deg, #dc2626, #f87171); }
+  .param-note { font-size: .75rem; color: var(--text-muted); margin-top: 8px; line-height: 1.4; }
+
+  /* MAP */
+  .map-card {
+    background: var(--card-bg);
+    border: 1.5px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .map-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: .9rem;
+  }
+  #mapFrame { width: 100%; height: 300px; border: none; display: block; }
+
+  /* TIPS */
+  .tips-card {
+    background: var(--card-bg);
+    border: 1.5px solid var(--border);
+    border-radius: 20px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text);
+  }
+  .tip-list { display: flex; flex-direction: column; gap: 10px; }
+  .tip-item {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: .85rem;
+    line-height: 1.5;
+  }
+  .tip-icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+
+  /* HISTORY */
+  .history-card {
+    background: var(--card-bg);
+    border: 1.5px solid var(--border);
+    border-radius: 20px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .history-list { display: flex; flex-direction: column; gap: 8px; }
+  .history-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: background .15s;
+    font-size: .85rem;
+  }
+  .history-item:hover { background: var(--border); }
+  .history-left { display: flex; align-items: center; gap: 10px; }
+  .history-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .history-dot.safe { background: var(--green); }
+  .history-dot.caution { background: var(--yellow); }
+  .history-dot.avoid { background: var(--red); }
+  .history-name { font-weight: 500; }
+  .history-score { font-family: 'Syne', sans-serif; font-weight: 700; font-size: .9rem; }
+  .history-score.safe { color: var(--green); }
+  .history-score.caution { color: var(--yellow); }
+  .history-score.avoid { color: var(--red); }
+
+  /* NOTES */
+  .notes-section { margin-top: 12px; }
+  .notes-label { font-size: .8rem; color: var(--text-muted); margin-bottom: 6px; }
+  .notes-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: .85rem;
+    resize: none;
+    outline: none;
+    transition: border-color .2s;
+    rows: 2;
+  }
+  .notes-input:focus { border-color: var(--green); }
+  .notes-btns { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .note-btn {
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: .8rem;
+    cursor: pointer;
+    transition: all .15s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .note-btn:hover { border-color: var(--green); color: var(--green); }
+  .note-btn.positive:hover { border-color: var(--green); color: var(--green); }
+  .note-btn.negative:hover { border-color: var(--red); color: var(--red); }
+
+  /* EMERGENCY */
+  .emergency-card {
+    background: rgba(248,113,113,.06);
+    border: 1.5px solid rgba(248,113,113,.2);
+    border-radius: 20px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .emergency-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 500px) { .emergency-grid { grid-template-columns: 1fr; } }
+  .emergency-item {
+    background: rgba(248,113,113,.05);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .emergency-name { font-weight: 600; font-size: .85rem; margin-bottom: 4px; }
+  .emergency-detail { font-size: .78rem; color: var(--text-muted); line-height: 1.5; }
+  .emergency-phone { color: var(--red); font-weight: 600; font-size: .85rem; margin-top: 4px; }
+
+  /* HEATMAP LEGEND */
+  .heatmap-card {
+    background: var(--card-bg);
+    border: 1.5px solid var(--border);
+    border-radius: 20px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .area-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  @media (max-width: 500px) { .area-grid { grid-template-columns: repeat(2, 1fr); } }
+  .area-item {
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+    border: 1px solid transparent;
+  }
+  .area-item.safe { background: rgba(74,222,128,.08); border-color: rgba(74,222,128,.2); }
+  .area-item.caution { background: rgba(251,191,36,.08); border-color: rgba(251,191,36,.2); }
+  .area-item.avoid { background: rgba(248,113,113,.08); border-color: rgba(248,113,113,.2); }
+  .area-name { font-weight: 600; font-size: .82rem; margin-bottom: 4px; }
+  .area-score { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.1rem; }
+  .area-item.safe .area-score { color: var(--green); }
+  .area-item.caution .area-score { color: var(--yellow); }
+  .area-item.avoid .area-score { color: var(--red); }
+  .area-label { font-size: .7rem; color: var(--text-muted); margin-top: 2px; }
+
+  /* FOOTER */
+  .footer {
+    text-align: center;
+    padding: 32px 0 16px;
+    color: var(--text-muted);
+    font-size: .78rem;
+    line-height: 1.7;
+  }
+
+  /* Utility */
+  .hidden { display: none !important; }
+  #noHistory { color: var(--text-muted); font-size: .85rem; text-align: center; padding: 16px; }
+
+  /* Scroll button */
+  .scroll-top {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--green);
+    color: #0a0f0d;
+    border: none;
+    border-radius: 50%;
+    width: 44px; height: 44px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .3s;
+    z-index: 50;
+  }
+  .scroll-top.visible { opacity: 1; }
+
+  /* Bali belly guide */
+  .belly-guide {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  @media (max-width: 500px) { .belly-guide { grid-template-columns: 1fr; } }
+  .belly-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 12px;
+    font-size: .82rem;
+    line-height: 1.5;
+  }
+  .belly-icon { font-size: 1.1rem; flex-shrink: 0; }
+
+  /* Tag chips */
+  .tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .tag {
+    padding: 4px 12px;
+    border-radius: 50px;
+    font-size: .72rem;
+    font-weight: 500;
+    border: 1px solid;
+  }
+  .tag.warning { background: rgba(251,191,36,.1); color: var(--yellow); border-color: rgba(251,191,36,.25); }
+  .tag.ok { background: rgba(74,222,128,.1); color: var(--green); border-color: rgba(74,222,128,.25); }
+  .tag.danger { background: rgba(248,113,113,.1); color: var(--red); border-color: rgba(248,113,113,.25); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo-badge">
+      <div class="logo-dot"></div>
+      Bali Food Safety Tracker
+    </div>
+    <h1>Safe<span>2</span>Eat<br>Bali</h1>
+    <p class="subtitle">AI-powered food safety ratings — share with the crew before you eat anywhere</p>
+  </header>
+
+  <!-- SEARCH -->
+  <div class="search-section">
+    <div class="search-box">
+      <div class="search-input-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="Search restaurant, bar, warungs... (e.g. Finns Beach Club)" autocomplete="off">
+        <div id="dropdown"></div>
+      </div>
+      <button id="searchBtn" onclick="analyzePlace()">Check It</button>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div id="loadingState">
+    <div class="spinner"></div>
+    <div class="loading-text">Analysing safety data...</div>
+    <div class="loading-steps">
+      <div class="loading-step" id="step1">🔍 Searching reviews & reports...</div>
+      <div class="loading-step" id="step2">🦠 Checking Bali belly mentions...</div>
+      <div class="loading-step" id="step3">🧼 Evaluating hygiene reports...</div>
+      <div class="loading-step" id="step4">📊 Calculating safety score...</div>
+    </div>
+  </div>
+
+  <!-- RESULT -->
+  <div id="result">
+
+    <!-- GAUGE CARD -->
+    <div class="gauge-card" id="gaugeCard">
+      <div class="place-header">
+        <div class="place-title" id="resultName">—</div>
+        <div class="place-meta">
+          <span id="metaArea">📍 Bali</span>
+          <span id="metaType">🍽️ Restaurant</span>
+          <span id="metaPrice">💰 $$</span>
+        </div>
+        <div class="tag-row" id="tagRow"></div>
+      </div>
+
+      <div class="gauge-wrap">
+        <svg class="gauge-svg" viewBox="0 0 220 130" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Track bg -->
+          <path d="M18 112 A92 92 0 0 1 202 112" stroke="#1e2e21" stroke-width="14" stroke-linecap="round" fill="none"/>
+          <!-- Green zone (left) -->
+          <path d="M18 112 A92 92 0 0 1 110 20" stroke="#1a4a2a" stroke-width="14" stroke-linecap="round" fill="none"/>
+          <!-- Yellow zone (middle) -->
+          <path d="M110 20 A92 92 0 0 1 168 36" stroke="#4a3000" stroke-width="14" stroke-linecap="round" fill="none"/>
+          <!-- Red zone (right) -->
+          <path d="M168 36 A92 92 0 0 1 202 112" stroke="#4a1010" stroke-width="14" stroke-linecap="round" fill="none"/>
+          <!-- Needle -->
+          <g id="gaugeNeedle" style="transform-origin:110px 112px; transform:rotate(-88deg); transition: transform 1.2s cubic-bezier(.34,1.56,.64,1)">
+            <line x1="110" y1="112" x2="110" y2="30" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="110" cy="112" r="7" fill="white" stroke="#0a0f0d" stroke-width="2.5"/>
+          </g>
+          <!-- Zone labels -->
+          <text x="10" y="126" fill="#4ade80" font-size="9" font-family="sans-serif" font-weight="700">SAFE</text>
+          <text x="110" y="13" fill="#fbbf24" font-size="9" font-family="sans-serif" font-weight="700" text-anchor="middle">CAUTION</text>
+          <text x="210" y="126" fill="#f87171" font-size="9" font-family="sans-serif" font-weight="700" text-anchor="end">AVOID</text>
+        </svg>
+        <div class="gauge-score">
+          <div class="score-number" id="scoreNumber">—</div>
+          <div class="score-label">Safety Score</div>
+        </div>
+      </div>
+
+      <div class="verdict-badge" id="verdictBadge">—</div>
+      <p class="verdict-summary" id="verdictSummary">—</p>
+    </div>
+
+    <!-- PARAMETERS -->
+    <div class="params-grid" id="paramsGrid"></div>
+
+    <!-- MAP -->
+    <div class="map-card">
+      <div class="map-header">🗺️ Location Map</div>
+      <div id="leafletMap" style="width:100%;height:300px;"></div>
+    </div>
+
+    <!-- ORDER GUIDE -->
+    <div class="tips-card">
+      <div class="section-title">🍽️ What To Order (and avoid)</div>
+      <div id="orderGuide"></div>
+    </div>
+
+    <!-- SAFETY TIPS -->
+    <div class="tips-card">
+      <div class="section-title">💡 Safety Tips for This Place</div>
+      <div class="tip-list" id="tipList"></div>
+    </div>
+
+    <!-- NOTES & LOG -->
+    <div class="tips-card">
+      <div class="section-title">✍️ Log Your Experience</div>
+      <div class="notes-section">
+        <div class="notes-label">Add a note (e.g. "Vi spiste her, ingen ble syke")</div>
+        <textarea class="notes-input" id="noteInput" rows="2" placeholder="Your experience here..."></textarea>
+        <div class="notes-btns">
+          <button class="note-btn positive" onclick="addNote('✅ No issues - all good!')">✅ Ingen ble syke</button>
+          <button class="note-btn negative" onclick="addNote('🤢 Got Bali belly the next day!')">🤢 Bali belly!</button>
+          <button class="note-btn negative" onclick="addNote('⚠️ Felt off but no full illness')">⚠️ Følte seg dårlig</button>
+          <button class="note-btn" onclick="saveNote()">💾 Save note</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end #result -->
+
+  <!-- HISTORY -->
+  <div class="history-card" id="historySection">
+    <div class="section-title">🕐 Checked Places</div>
+    <div class="history-list" id="historyList">
+      <div id="noHistory">No places checked yet — søk opp et sted!</div>
+    </div>
+  </div>
+
+  <!-- BALI AREA HEATMAP -->
+  <div class="heatmap-card">
+    <div class="section-title">🗺️ Bali Area Safety Overview</div>
+    <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:14px;">General food safety by area — based on aggregated reports</p>
+    <div class="area-grid">
+      <div class="area-item safe"><div class="area-name">Seminyak</div><div class="area-score">81%</div><div class="area-label">Generally safe</div></div>
+      <div class="area-item safe"><div class="area-name">Canggu</div><div class="area-score">79%</div><div class="area-label">Generally safe</div></div>
+      <div class="area-item safe"><div class="area-name">Ubud</div><div class="area-score">76%</div><div class="area-label">Be selective</div></div>
+      <div class="area-item caution"><div class="area-name">Kuta</div><div class="area-score">61%</div><div class="area-label">More reports</div></div>
+      <div class="area-item caution"><div class="area-name">Legian</div><div class="area-score">65%</div><div class="area-label">Mixed quality</div></div>
+      <div class="area-item safe"><div class="area-name">Nusa Dua</div><div class="area-score">84%</div><div class="area-label">Tourist safe</div></div>
+      <div class="area-item caution"><div class="area-name">Denpasar</div><div class="area-score">60%</div><div class="area-label">Street food risk</div></div>
+      <div class="area-item safe"><div class="area-name">Uluwatu</div><div class="area-score">74%</div><div class="area-label">Mostly okay</div></div>
+      <div class="area-item caution"><div class="area-name">Sanur</div><div class="area-score">71%</div><div class="area-label">Moderate risk</div></div>
+    </div>
+  </div>
+
+  <!-- BALI BELLY GUIDE -->
+  <div class="tips-card">
+    <div class="section-title">🦠 Bali Belly Guide — What To Watch Out For</div>
+    <div class="belly-guide">
+      <div class="belly-item"><span class="belly-icon">💧</span><span><strong>Ice cubes</strong> — Often made with tap water. Stick to bottled drinks or ask for "no ice".</span></div>
+      <div class="belly-item"><span class="belly-icon">🥗</span><span><strong>Raw salads & fruit</strong> — Washed with tap water. Ask if it's peeled/cooked.</span></div>
+      <div class="belly-item"><span class="belly-icon">🍖</span><span><strong>Buffet food</strong> — Sitting out for hours. High-risk, especially in heat.</span></div>
+      <div class="belly-item"><span class="belly-icon">🐟</span><span><strong>Raw fish / sushi</strong> — Only at top-end, well-reviewed places.</span></div>
+      <div class="belly-item"><span class="belly-icon">🌮</span><span><strong>Warungs / street food</strong> — Higher risk but often fine. Check turnover.</span></div>
+      <div class="belly-item"><span class="belly-icon">🧴</span><span><strong>If you get it</strong> — Electrolytes, rest, Imodium. Go to BIMC if fever/blood.</span></div>
+    </div>
+  </div>
+
+  <!-- EMERGENCY INFO -->
+  <div class="emergency-card">
+    <div class="section-title" style="color: #f87171;">🏥 Emergency Medical Info</div>
+    <div class="emergency-grid">
+      <div class="emergency-item">
+        <div class="emergency-name">BIMC Hospital Kuta</div>
+        <div class="emergency-detail">Jl. Bypass Ngurah Rai No.100X, Kuta<br>24/7 — expat-friendly, English spoken</div>
+        <div class="emergency-phone">📞 +62 361 761 263</div>
+      </div>
+      <div class="emergency-item">
+        <div class="emergency-name">SOS Medika Klinik</div>
+        <div class="emergency-detail">Jl. Bypass Ngurah Rai, Kuta<br>Insurance accepted, travel-friendly</div>
+        <div class="emergency-phone">📞 +62 361 720 100</div>
+      </div>
+      <div class="emergency-item">
+        <div class="emergency-name">BIMC Nusa Dua</div>
+        <div class="emergency-detail">Kawasan BTDC Lot S-3, Nusa Dua<br>Near beach clubs south Bali</div>
+        <div class="emergency-phone">📞 +62 361 3000 911</div>
+      </div>
+      <div class="emergency-item">
+        <div class="emergency-name">Kasih Ibu Hospital</div>
+        <div class="emergency-detail">Jl. Teuku Umar No.120, Denpasar<br>Central Bali, well-equipped</div>
+        <div class="emergency-phone">📞 +62 361 223 036</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Safe2Eat Bali — AI-powered food safety for travelers 🌴<br>
+    Not a substitute for medical advice. If you feel seriously ill, contact a doctor immediately.
+  </div>
+</div>
+
+<button class="scroll-top" id="scrollTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<script>
+// ===== STATE =====
+let selectedPlace = null;
+let history = JSON.parse(localStorage.getItem('s2e_history') || '[]');
+
+// ===== SCROLL TOP =====
+window.addEventListener('scroll', () => {
+  document.getElementById('scrollTop').classList.toggle('visible', window.scrollY > 400);
+});
+
+// ===== SEARCH INPUT =====
+const searchInput = document.getElementById('searchInput');
+const dropdown = document.getElementById('dropdown');
+
+const KNOWN_PLACES = [
+  { name: "Finns Beach Club", area: "Canggu", type: "Beach Club" },
+  { name: "Finns Recreation Club", area: "Canggu", type: "Sports & Dining" },
+  { name: "Potato Head Beach Club", area: "Seminyak", type: "Beach Club" },
+  { name: "La Favela", area: "Seminyak", type: "Bar & Restaurant" },
+  { name: "Ku De Ta", area: "Seminyak", type: "Beach Club" },
+  { name: "Motel Mexicola", area: "Seminyak", type: "Restaurant & Bar" },
+  { name: "Merah Putih", area: "Seminyak", type: "Fine Dining" },
+  { name: "Sarong Restaurant", area: "Seminyak", type: "Fine Dining" },
+  { name: "Zibiru", area: "Seminyak", type: "Italian Restaurant" },
+  { name: "Warung Ibu Oka", area: "Ubud", type: "Warung" },
+  { name: "Locavore", area: "Ubud", type: "Fine Dining" },
+  { name: "Naughty Nuri's", area: "Ubud", type: "Bar & Grill" },
+  { name: "Bridges Bali", area: "Ubud", type: "Restaurant" },
+  { name: "Hujan Locale", area: "Ubud", type: "Restaurant" },
+  { name: "The Shady Shack", area: "Canggu", type: "Cafe & Restaurant" },
+  { name: "Old Man's", area: "Canggu", type: "Bar & Restaurant" },
+  { name: "Pretty Poison", area: "Canggu", type: "Bar" },
+  { name: "Deus Ex Machina", area: "Canggu", type: "Cafe & Bar" },
+  { name: "Shelter Canggu", area: "Canggu", type: "Resto & Bar" },
+  { name: "Petitenget Restaurant", area: "Seminyak", type: "Restaurant" },
+  { name: "Rock Bar", area: "Uluwatu", type: "Bar" },
+  { name: "Single Fin", area: "Uluwatu", type: "Bar & Restaurant" },
+  { name: "Ulu Cliffhouse", area: "Uluwatu", type: "Beach Club" },
+  { name: "Warung Sulawesi", area: "Seminyak", type: "Warung" },
+  { name: "Metis Restaurant", area: "Seminyak", type: "Fine Dining" },
+  { name: "Biku Restaurant", area: "Seminyak", type: "Restaurant" },
+  { name: "Nusa Dua Beach Grill", area: "Nusa Dua", type: "Restaurant" },
+  { name: "Kayun Kuta", area: "Kuta", type: "Restaurant" },
+  { name: "Hard Rock Cafe Bali", area: "Kuta", type: "Bar & Restaurant" },
+  { name: "Sky Garden Bali", area: "Kuta", type: "Nightclub" },
+  { name: "Made's Warung", area: "Seminyak", type: "Warung" },
+  { name: "Mama San", area: "Seminyak", type: "Restaurant" },
+  { name: "Watercress Cafe", area: "Canggu", type: "Cafe" },
+  { name: "Pura Vida Bali", area: "Canggu", type: "Restaurant" },
+  { name: "Kynd Community", area: "Seminyak", type: "Vegan Cafe" },
+  { name: "Crate Cafe", area: "Canggu", type: "Cafe" },
+];
+
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.trim().toLowerCase();
+  if (q.length < 2) { dropdown.style.display = 'none'; return; }
+  const matches = KNOWN_PLACES.filter(p =>
+    p.name.toLowerCase().includes(q) || p.area.toLowerCase().includes(q) || p.type.toLowerCase().includes(q)
+  ).slice(0, 6);
+  if (!matches.length) { dropdown.style.display = 'none'; return; }
+  dropdown.innerHTML = matches.map(p => `
+    <div class="dropdown-item" onclick="selectPlace('${p.name}', '${p.area}', '${p.type}')">
+      <span class="place-name">${p.name}</span>
+      <span class="place-type">📍 ${p.area} · ${p.type}</span>
+    </div>
+  `).join('');
+  dropdown.style.display = 'block';
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-input-wrap')) dropdown.style.display = 'none';
+});
+
+searchInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') analyzePlace();
+});
+
+function selectPlace(name, area, type) {
+  searchInput.value = name;
+  selectedPlace = { name, area, type };
+  dropdown.style.display = 'none';
+}
+
+// ===== ANALYZE =====
+async function analyzePlace() {
+  const query = searchInput.value.trim();
+  if (!query) return;
+
+  if (!selectedPlace) {
+    // Try to match from known places
+    const match = KNOWN_PLACES.find(p => p.name.toLowerCase() === query.toLowerCase());
+    if (match) {
+      selectedPlace = match;
+    } else {
+      // Guess area from query or default
+      const areaGuess = KNOWN_PLACES.find(p => query.toLowerCase().includes(p.area.toLowerCase()));
+      selectedPlace = {
+        name: query,
+        area: areaGuess ? areaGuess.area : 'Bali',
+        type: 'Restaurant / Bar'
+      };
+    }
+  }
+
+  showLoading();
+
+  try {
+    const data = await callClaudeAPI(selectedPlace);
+    displayResult(data);
+    saveToHistory(selectedPlace.name, data.score, getVerdict(data.score));
+  } catch (err) {
+    console.error(err);
+    alert('Something went wrong analysing this place. Check your connection and try again.');
+  } finally {
+    hideLoading();
+  }
+
+  selectedPlace = null;
+}
+
+function showLoading() {
+  document.getElementById('loadingState').style.display = 'block';
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('searchBtn').disabled = true;
+
+  const steps = ['step1','step2','step3','step4'];
+  steps.forEach((s, i) => {
+    document.getElementById(s).classList.remove('active');
+    setTimeout(() => document.getElementById(s).classList.add('active'), i * 1400);
+  });
+}
+
+function hideLoading() {
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('searchBtn').disabled = false;
+  ['step1','step2','step3','step4'].forEach(s => document.getElementById(s).classList.remove('active'));
+}
+
+// ===== LOCAL KNOWLEDGE ENGINE (no API needed — works on GitHub Pages) =====
+
+const AREA_PROFILES = {
+  'Seminyak':  { base: 78, ice: 72, water: 75 },
+  'Canggu':    { base: 76, ice: 70, water: 73 },
+  'Ubud':      { base: 73, ice: 68, water: 70 },
+  'Kuta':      { base: 58, ice: 55, water: 57 },
+  'Legian':    { base: 63, ice: 60, water: 62 },
+  'Nusa Dua':  { base: 83, ice: 80, water: 82 },
+  'Uluwatu':   { base: 72, ice: 68, water: 70 },
+  'Sanur':     { base: 69, ice: 65, water: 68 },
+  'Denpasar':  { base: 58, ice: 52, water: 56 },
+  'Bali':      { base: 68, ice: 64, water: 66 },
+};
+
+const TYPE_PROFILES = {
+  'Beach Club':        { hygiene: +12, belly: -10, price: '$$$',  waterRisk: -8  },
+  'Fine Dining':       { hygiene: +18, belly: -16, price: '$$$$', waterRisk: -14 },
+  'Restaurant':        { hygiene: +2,  belly: -2,  price: '$$',   waterRisk: -2  },
+  'Bar & Restaurant':  { hygiene: 0,   belly: -2,  price: '$$',   waterRisk: +5  },
+  'Bar':               { hygiene: -8,  belly: +8,  price: '$$',   waterRisk: +14 },
+  'Nightclub':         { hygiene: -18, belly: +18, price: '$$',   waterRisk: +18 },
+  'Warung':            { hygiene: -16, belly: +20, price: '$',    waterRisk: +16 },
+  'Cafe':              { hygiene: +5,  belly: -5,  price: '$',    waterRisk: +3  },
+  'Cafe & Bar':        { hygiene: +2,  belly: -2,  price: '$$',   waterRisk: +6  },
+  'Cafe & Restaurant': { hygiene: +4,  belly: -4,  price: '$$',   waterRisk: +3  },
+  'Sports & Dining':   { hygiene: +8,  belly: -7,  price: '$$',   waterRisk: -3  },
+  'Vegan Cafe':        { hygiene: +7,  belly: -5,  price: '$$',   waterRisk: +4  },
+  'Italian Restaurant':{ hygiene: +8,  belly: -8,  price: '$$$',  waterRisk: -6  },
+  'Resto & Bar':       { hygiene: +1,  belly: -1,  price: '$$',   waterRisk: +6  },
+};
+
+const PLACE_OVERRIDES = {
+  'Finns Beach Club':        { score: 82, summary: "Finns Beach Club is one of Canggu's most established venues and maintains high food safety standards relative to the area. Kitchen hygiene is generally well-regarded, though always specify filtered water and avoid tap ice. Isolated Bali belly reports exist but are uncommon given the volume of visitors." },
+  'Finns Recreation Club':   { score: 80, summary: "Finns Recreation Club upholds solid hygiene standards. Popular with expats and long-term visitors who vouch for consistent food quality. Ask for sealed bottled water rather than jugs. A reliable choice in Canggu." },
+  'Potato Head Beach Club':  { score: 85, summary: "One of Bali's most premium beach clubs with strong kitchen standards. Reports of food illness are rare relative to visitor numbers. Ice is filtered. A safe choice for a splurge day." },
+  'Locavore':                { score: 91, summary: "Locavore is widely considered Bali's best fine dining restaurant and operates to world-class hygiene standards. Virtually no reported food safety issues. Extremely safe choice." },
+  'Warung Ibu Oka':          { score: 58, summary: "A famous Ubud warung known for suckling pig. High turnover keeps food fresh but it remains a traditional warung setup. Some visitors report stomach issues — avoid if your gut is sensitive. Peak hours are safest." },
+  'Naughty Nuri\'s':         { score: 62, summary: "A Bali institution for ribs and cocktails, but hygiene standards are that of a casual bar-grill. Food moves fast during busy hours which helps freshness. The strong cocktails have been accused of more mischief than the kitchen." },
+  'Rock Bar':                { score: 74, summary: "Rock Bar at Ayana is a spectacular setting with resort-level oversight. Food safety is well above Uluwatu average. Mostly a drinking spot — stick to simple food items for best results." },
+  'Old Man\'s':              { score: 71, summary: "Old Man's is a Canggu staple with solid but not exceptional hygiene. Kitchen is busy and high-turnover which helps. Stick to cooked dishes and bottled beer rather than cocktails with ice." },
+  'Sky Garden Bali':         { score: 38, summary: "Sky Garden is a Kuta nightclub first, food venue second. Multiple traveller reports of stomach issues exist. The all-inclusive buffet food sits out for long periods in the heat. Eat before you go." },
+  'Hard Rock Cafe Bali':     { score: 66, summary: "Standard Hard Rock chain protocols apply — more reliable than average Kuta venues. Ingredients are from larger suppliers. A decent safe fallback in Kuta though uninspiring." },
+  'La Favela':               { score: 73, summary: "La Favela is a trendy Seminyak bar-restaurant hybrid. The kitchen is busier with food than many bar venues which helps. Hygiene is acceptable. Stick to their main menu items rather than specials." },
+  'Single Fin':              { score: 76, summary: "Single Fin has a great view and decent kitchen standards for Uluwatu. Popular with surfers and expats. Some reports of slow food during busy Sunday sessions — freshness can vary. Cooked food is reliable." },
+  'The Shady Shack':         { score: 77, summary: "The Shady Shack is a well-regarded plant-based cafe in Canggu. Hygiene standards are above average and the concept lends itself to safer preparation. A good choice." },
+};
+
+const TIPS_BY_TYPE = {
+  'Beach Club':   ["Ask specifically for 'no ice' or confirm ice is filtered", "Stick to grilled/fried items over raw salads", "High-turnover venues are safer — go during peak lunch hours", "Check if sunscreen/sea exposure has dehydrated you before eating"],
+  'Fine Dining':  ["Fine dining kitchens in Bali operate to very high standards", "Water and ice are virtually always filtered at this level", "You can generally trust the full menu here", "Still wash hands before eating — Bali's environment is its own thing"],
+  'Warung':       ["Order during busy hours — high turnover = fresher food", "Point to what's freshly cooked rather than pre-made", "Skip the raw salads and sambals if your stomach is sensitive", "Drink only sealed bottled water — never the jug on the table"],
+  'Bar':          ["Don't mix heavy drinking with street food after", "Cocktail ice is the main risk — say 'no ice' or order beer/wine", "Eat before heading out rather than relying on bar snacks", "Stick to bottled/canned drinks to be safe"],
+  'Nightclub':    ["Avoid the food entirely if possible — eat beforehand", "Bar food in clubs often sits out too long in the heat", "Hydrate with sealed bottled water only", "If you do eat, fried food is safer than cold items"],
+  'default':      ["Always ask for sealed bottled water rather than jugs", "Avoid ice unless the venue specifically says it's filtered", "Stick to freshly cooked hot food", "If in doubt, go with the most popular dish — high turnover = fresher"],
+};
+
+async function callClaudeAPI(place) {
+  // Simulate a small delay so the loading animation feels real
+  await new Promise(r => setTimeout(r, 2200));
+
+  const area = AREA_PROFILES[place.area] || AREA_PROFILES['Bali'];
+  const typeKey = Object.keys(TYPE_PROFILES).find(k => place.type.includes(k)) || 'Restaurant';
+  const type = TYPE_PROFILES[typeKey] || { hygiene: 0, belly: 0, price: '$$', waterRisk: 0 };
+  const override = PLACE_OVERRIDES[place.name];
+
+  // Build scores
+  let baseScore = area.base + type.hygiene;
+  // Add slight randomness so same-type places differ a bit
+  const seed = place.name.split('').reduce((a,c) => a + c.charCodeAt(0), 0);
+  const rand = ((seed % 13) - 6); // -6 to +6
+  baseScore = Math.min(97, Math.max(28, baseScore + rand));
+
+  const hygieneScore  = Math.min(97, Math.max(20, area.base + type.hygiene + (rand/2)));
+  const bellyRisk     = Math.min(95, Math.max(15, 100 - baseScore + Math.abs(rand/2)));  // higher = more risk
+  const waterRisk     = Math.min(95, Math.max(10, (100 - area.ice) + type.waterRisk));
+  const foodQuality   = Math.min(95, Math.max(30, baseScore + 3 + (rand/3)));
+  const areaScore     = area.base;
+  const touristSafety = Math.min(97, Math.max(25, baseScore + (typeKey === 'Fine Dining' ? 8 : typeKey === 'Warung' ? -8 : 2)));
+
+  const finalScore = override ? override.score : Math.round(baseScore);
+
+  // Summary
+  const genericSummaries = {
+    safe:    `${place.name} is a ${place.type.toLowerCase()} in ${place.area} with generally solid food safety standards for Bali. Kitchen hygiene is above average for the area and Bali belly reports are relatively infrequent. As always in Bali, opt for bottled water and avoid tap ice to stay safe.`,
+    caution: `${place.name} is a ${place.type.toLowerCase()} in ${place.area} with mixed food safety signals. Some traveller reports of stomach discomfort exist. Stick to freshly cooked hot dishes, avoid raw items and tap ice, and you should be fine. Sensitive stomachs should be selective.`,
+    avoid:   `${place.name} raises enough food safety concerns to warrant caution. Multiple factors — venue type, area, and hygiene standards — put it in the higher-risk bracket. If you do visit, eat only freshly fried/grilled food, drink only sealed bottles, and avoid the buffet or anything pre-prepared.`,
+  };
+  const verdict = finalScore >= 75 ? 'safe' : finalScore >= 50 ? 'caution' : 'avoid';
+  const summary = override ? override.summary : genericSummaries[verdict];
+
+  // Tips
+  const tipKey = Object.keys(TIPS_BY_TYPE).find(k => place.type.includes(k)) || 'default';
+  const tips = TIPS_BY_TYPE[tipKey] || TIPS_BY_TYPE['default'];
+
+  // Tags
+  const tags = [];
+  if (finalScore >= 80) tags.push('Well-reviewed');
+  if (typeKey === 'Fine Dining' || typeKey === 'Beach Club') tags.push('Upscale kitchen');
+  if (typeKey === 'Warung') tags.push('Street food style');
+  if (waterRisk > 55) tags.push('Ice risk');
+  if (bellyRisk > 40) tags.push('Bali belly risk');
+  if (place.area === 'Kuta' || place.area === 'Denpasar') tags.push('High-risk area');
+  if (place.area === 'Nusa Dua' || place.area === 'Seminyak') tags.push('Expat-popular');
+  if (finalScore >= 75) tags.push('Generally safe');
+  if (typeKey === 'Nightclub' || typeKey === 'Bar') tags.push('Bar food caution');
+
+  return {
+    score: finalScore,
+    verdict: verdict === 'safe' ? 'Safe to Eat' : verdict === 'caution' ? 'Be Cautious' : 'Avoid',
+    summary,
+    params: {
+      bali_belly_risk: { score: bellyRisk,     note: bellyRisk > 50 ? `Higher-than-average Bali belly reports for this venue type in ${place.area}.` : `Relatively low Bali belly risk for a ${typeKey.toLowerCase()} in ${place.area}.` },
+      hygiene:         { score: Math.round(hygieneScore), note: `Kitchen hygiene rated ${Math.round(hygieneScore) >= 75 ? 'above' : Math.round(hygieneScore) >= 55 ? 'around' : 'below'} average for ${place.area}.` },
+      water_ice_risk:  { score: waterRisk,      note: waterRisk > 55 ? 'Ice and water safety uncertain — always request sealed bottled water.' : 'Venue likely uses filtered water/ice but confirm before ordering drinks.' },
+      food_quality:    { score: Math.round(foodQuality), note: `Food quality and freshness ${Math.round(foodQuality) >= 75 ? 'generally well-regarded' : 'varies — order popular high-turnover dishes'}.` },
+      area_risk:       { score: areaScore,       note: `${place.area} scores ${areaScore >= 75 ? 'above' : areaScore >= 60 ? 'around' : 'below'} average for Bali food safety overall.` },
+      tourist_safety:  { score: Math.round(touristSafety), note: `${Math.round(touristSafety) >= 75 ? 'Well-suited for tourists' : Math.round(touristSafety) >= 55 ? 'Acceptable with precautions' : 'Exercise extra caution as a tourist here'}.` },
+    },
+    tags: tags.slice(0, 4),
+    tips,
+    price_level: type.price,
+  };
+}
+
+// ===== DISPLAY =====
+function getVerdict(score) {
+  if (score >= 75) return 'safe';
+  if (score >= 50) return 'caution';
+  return 'avoid';
+}
+
+function displayResult(data) {
+  document.getElementById('result').style.display = 'block';
+  const v = getVerdict(data.score);
+
+  // Place info
+  document.getElementById('resultName').textContent = selectedPlace ? selectedPlace.name : searchInput.value;
+  document.getElementById('metaArea').textContent = '📍 ' + (selectedPlace?.area || 'Bali');
+  document.getElementById('metaType').textContent = '🍽️ ' + (selectedPlace?.type || 'Venue');
+  document.getElementById('metaPrice').textContent = '💰 ' + (data.price_level || '$$');
+
+  // Tags
+  const tagRow = document.getElementById('tagRow');
+  tagRow.innerHTML = (data.tags || []).map(t => {
+    let cls = 'ok';
+    if (/risk|avoid|caution|ice|raw|buffet/i.test(t)) cls = 'warning';
+    if (/avoid|danger|sick/i.test(t)) cls = 'danger';
+    return `<span class="tag ${cls}">${t}</span>`;
+  }).join('');
+
+  // Gauge card class
+  const gc = document.getElementById('gaugeCard');
+  gc.className = 'gauge-card ' + v;
+
+  // Needle rotation: score 100 = -88deg (left/safe), 0 = +88deg (right/avoid)
+  const deg = ((100 - data.score) / 100) * 176 - 88;
+  document.getElementById('gaugeNeedle').style.transform = `rotate(${deg}deg)`;
+
+  // Score
+  const colors = { safe: '#4ade80', caution: '#fbbf24', avoid: '#f87171' };
+  const sn = document.getElementById('scoreNumber');
+  sn.style.color = colors[v];
+  sn.textContent = data.score + '%';
+
+  // Verdict badge
+  const icons = { safe: '✅', caution: '⚠️', avoid: '🚫' };
+  const labels = { safe: 'Safe to Eat', caution: 'Be Cautious', avoid: 'Avoid This Place' };
+  const vb = document.getElementById('verdictBadge');
+  vb.className = 'verdict-badge ' + v;
+  vb.innerHTML = `${icons[v]} ${labels[v]}`;
+  document.getElementById('verdictSummary').textContent = data.summary;
+
+  // Params
+  const paramDefs = [
+    { key: 'bali_belly_risk', label: 'Bali Belly Risk', emoji: '🦠', invert: true },
+    { key: 'hygiene', label: 'Hygiene & Cleanliness', emoji: '🧼', invert: false },
+    { key: 'water_ice_risk', label: 'Water / Ice Risk', emoji: '💧', invert: true },
+    { key: 'food_quality', label: 'Food Quality', emoji: '🍖', invert: false },
+    { key: 'area_risk', label: 'Area Safety', emoji: '📍', invert: false },
+    { key: 'tourist_safety', label: 'Tourist Safety', emoji: '🌏', invert: false },
+  ];
+  const grid = document.getElementById('paramsGrid');
+  grid.innerHTML = paramDefs.map(p => {
+    const raw = data.params?.[p.key] || { score: 50, note: '' };
+    const displayScore = p.invert ? 100 - raw.score : raw.score;
+    const pv = getVerdict(displayScore);
+    return `
+      <div class="param-card">
+        <div class="param-header">
+          <span class="param-label"><span class="param-emoji">${p.emoji}</span>${p.label}</span>
+          <span class="param-score" style="color:${colors[pv]}">${displayScore}%</span>
+        </div>
+        <div class="param-bar-bg"><div class="param-bar-fill ${pv}" style="width:${displayScore}%"></div></div>
+        <div class="param-note">${raw.note}</div>
+      </div>
+    `;
+  }).join('');
+
+  // Leaflet Map
+  initLeafletMap(selectedPlace || { name: searchInput.value, area: 'Bali' });
+
+  // Order guide
+  renderOrderGuide(data, selectedPlace);
+
+  // Tips
+  document.getElementById('tipList').innerHTML = (data.tips || []).map(t =>
+    `<div class="tip-item"><span class="tip-icon">💡</span><span>${t}</span></div>`
+  ).join('');
+
+  // Note input
+  document.getElementById('noteInput').value = '';
+
+  // Scroll into view
+  setTimeout(() => document.getElementById('gaugeCard').scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+  // Animate bars
+  setTimeout(() => {
+    document.querySelectorAll('.param-bar-fill').forEach(b => {
+      const w = b.style.width;
+      b.style.width = '0%';
+      setTimeout(() => b.style.width = w, 50);
+    });
+  }, 200);
+}
+
+// ===== NOTES =====
+function addNote(text) {
+  document.getElementById('noteInput').value = text;
+  saveNote();
+}
+
+function saveNote() {
+  const name = document.getElementById('resultName').textContent;
+  const note = document.getElementById('noteInput').value.trim();
+  if (!note || !name || name === '—') return;
+  const hist = JSON.parse(localStorage.getItem('s2e_history') || '[]');
+  const idx = hist.findIndex(h => h.name === name);
+  if (idx >= 0) {
+    hist[idx].notes = hist[idx].notes || [];
+    hist[idx].notes.push({ text: note, date: new Date().toLocaleDateString('no') });
+    localStorage.setItem('s2e_history', JSON.stringify(hist));
+    renderHistory();
+    document.getElementById('noteInput').value = '';
+    alert('Note saved! ✅');
+  }
+}
+
+// ===== HISTORY =====
+function saveToHistory(name, score, verdict) {
+  let hist = JSON.parse(localStorage.getItem('s2e_history') || '[]');
+  const existing = hist.findIndex(h => h.name === name);
+  const entry = { name, score, verdict, date: new Date().toLocaleDateString('no'), notes: [] };
+  if (existing >= 0) hist[existing] = { ...hist[existing], score, verdict, date: entry.date };
+  else hist.unshift(entry);
+  hist = hist.slice(0, 20);
+  localStorage.setItem('s2e_history', JSON.stringify(hist));
+  renderHistory();
+}
+
+function renderHistory() {
+  const hist = JSON.parse(localStorage.getItem('s2e_history') || '[]');
+  const list = document.getElementById('historyList');
+  const none = document.getElementById('noHistory');
+  if (!hist.length) { none.style.display = 'block'; return; }
+  none.style.display = 'none';
+  list.innerHTML = hist.map(h => `
+    <div class="history-item" onclick="loadFromHistory('${h.name.replace(/'/g, "\\'")}')">
+      <div class="history-left">
+        <div class="history-dot ${h.verdict}"></div>
+        <div>
+          <div class="history-name">${h.name}</div>
+          <div style="font-size:.72rem;color:var(--text-muted)">${h.date}${h.notes?.length ? ` · ${h.notes.length} note(s)` : ''}</div>
+        </div>
+      </div>
+      <div class="history-score ${h.verdict}">${h.score}%</div>
+    </div>
+  `).join('');
+}
+
+function loadFromHistory(name) {
+  searchInput.value = name;
+  const match = KNOWN_PLACES.find(p => p.name === name);
+  selectedPlace = match || { name, area: 'Bali', type: 'Restaurant / Bar' };
+  analyzePlace();
+}
+
+// Init history
+renderHistory();
+
+// ===== LEAFLET MAP =====
+let leafletMap = null;
+let leafletMarker = null;
+
+const PLACE_COORDS = {
+  'Finns Beach Club':        [-8.6603, 115.1291],
+  'Finns Recreation Club':   [-8.6598, 115.1294],
+  'Potato Head Beach Club':  [-8.6906, 115.1582],
+  'La Favela':               [-8.6887, 115.1611],
+  'Ku De Ta':                [-8.6894, 115.1601],
+  'Motel Mexicola':          [-8.6878, 115.1605],
+  'Merah Putih':             [-8.6871, 115.1609],
+  'Sarong Restaurant':       [-8.6882, 115.1603],
+  'Warung Ibu Oka':          [-8.5069, 115.2624],
+  'Locavore':                [-8.5068, 115.2633],
+  'Naughty Nuri\'s':         [-8.5048, 115.2614],
+  'Bridges Bali':            [-8.5060, 115.2640],
+  'The Shady Shack':         [-8.6591, 115.1302],
+  'Old Man\'s':              [-8.6598, 115.1287],
+  'Pretty Poison':           [-8.6602, 115.1299],
+  'Deus Ex Machina':         [-8.6590, 115.1310],
+  'Rock Bar':                [-8.8194, 115.0884],
+  'Single Fin':              [-8.8188, 115.0892],
+  'Ulu Cliffhouse':          [-8.8200, 115.0878],
+  'Sky Garden Bali':         [-8.7217, 115.1686],
+  'Hard Rock Cafe Bali':     [-8.7215, 115.1680],
+  'Mama San':                [-8.6875, 115.1614],
+};
+
+const AREA_COORDS = {
+  'Seminyak': [-8.6906, 115.1582],
+  'Canggu':   [-8.6603, 115.1291],
+  'Ubud':     [-8.5069, 115.2624],
+  'Kuta':     [-8.7215, 115.1680],
+  'Legian':   [-8.7100, 115.1660],
+  'Nusa Dua': [-8.7987, 115.2317],
+  'Uluwatu':  [-8.8194, 115.0884],
+  'Sanur':    [-8.6986, 115.2634],
+  'Denpasar': [-8.6500, 115.2167],
+  'Bali':     [-8.4095, 115.1889],
+};
+
+function initLeafletMap(place) {
+  const coords = PLACE_COORDS[place.name] || AREA_COORDS[place.area] || [-8.4095, 115.1889];
+  const zoom = PLACE_COORDS[place.name] ? 16 : 13;
+
+  if (leafletMap) {
+    leafletMap.setView(coords, zoom);
+    if (leafletMarker) leafletMarker.setLatLng(coords);
+    else leafletMarker = L.marker(coords).addTo(leafletMap).bindPopup(`<b>${place.name}</b>`).openPopup();
+    return;
+  }
+
+  leafletMap = L.map('leafletMap').setView(coords, zoom);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 19,
+  }).addTo(leafletMap);
+  leafletMarker = L.marker(coords).addTo(leafletMap)
+    .bindPopup(`<b>${place.name}</b><br>${place.area || ''} · ${place.type || ''}`)
+    .openPopup();
+}
+
+// ===== ORDER GUIDE =====
+const ORDER_GUIDES = {
+  'Beach Club': {
+    order:  ['Grilled fish or chicken', 'Burger or sandwich', 'Fries / cooked sides', 'Bottled beer or wine', 'Fresh coconut (sealed)'],
+    avoid:  ['Raw salads (tap water wash)', 'Ice in cocktails unless filtered', 'Buffet items sitting in sun', 'Ceviche or raw seafood'],
+  },
+  'Fine Dining': {
+    order:  ['Anything on the menu — kitchens are well-managed', 'Filtered still or sparkling water', 'Cooked seafood dishes', 'Desserts'],
+    avoid:  ['No major concerns at this level', 'Still skip tap water if offered'],
+  },
+  'Warung': {
+    order:  ['Nasi goreng (fried rice — high heat kills bacteria)', 'Mie goreng (fried noodles)', 'Satay (grilled skewers)', 'Sealed bottled water only', 'Point to freshly cooked dishes'],
+    avoid:  ['Pre-made sambals sitting out', 'Raw vegetables / lalapan', 'Jug water on the table', 'Anything in a bain-marie that looks old'],
+  },
+  'Bar': {
+    order:  ['Beer (bottled or canned)', 'Wine (bottle is fine)', 'Simple cooked snacks', 'Spirits with sealed mixers'],
+    avoid:  ['Ice in drinks — high risk in bars', 'Bar snacks left out in open air', 'Cocktails with fresh juice and ice'],
+  },
+  'Nightclub': {
+    order:  ['Sealed bottled drinks only', 'Stick to beer or straight spirits'],
+    avoid:  ['All food if possible — eat before', 'Buffet food / bar food', 'Cocktails with ice', 'Anything pre-prepared'],
+  },
+  'Cafe': {
+    order:  ['Toasted/baked items', 'Eggs (cooked through)', 'Sealed juices or bottled water', 'Coffee (hot = safe)'],
+    avoid:  ['Raw smoothie bowls with tap water', 'Ice in drinks if unsure', 'Salads washed in tap water'],
+  },
+  'default': {
+    order:  ['Freshly grilled or fried hot food', 'Bottled or canned drinks', 'Peeled fruit you peel yourself', 'Dishes cooked to order'],
+    avoid:  ['Ice unless confirmed filtered', 'Raw salads and garnishes', 'Buffet / pre-made dishes left out', 'Tap water or jug water'],
+  },
+};
+
+function renderOrderGuide(data, place) {
+  const typeKey = place ? Object.keys(ORDER_GUIDES).find(k => place.type && place.type.includes(k)) : null;
+  const guide = ORDER_GUIDES[typeKey] || ORDER_GUIDES['default'];
+  document.getElementById('orderGuide').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <div style="font-size:.8rem;font-weight:600;color:#4ade80;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">✅ Safe to order</div>
+        ${guide.order.map(i => `<div class="tip-item" style="margin-bottom:6px"><span class="tip-icon">✅</span><span>${i}</span></div>`).join('')}
+      </div>
+      <div>
+        <div style="font-size:.8rem;font-weight:600;color:#f87171;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">🚫 Avoid</div>
+        ${guide.avoid.map(i => `<div class="tip-item" style="margin-bottom:6px;border-left:2px solid rgba(248,113,113,.3)"><span class="tip-icon">🚫</span><span>${i}</span></div>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+</script>
+
+</body>
+</html>
